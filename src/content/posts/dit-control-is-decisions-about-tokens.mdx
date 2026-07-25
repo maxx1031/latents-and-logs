@@ -1,0 +1,76 @@
+---
+title: 'DiT Control Is a Few Decisions About Tokens'
+description: 'A working skeleton: what a diffusion transformer actually is, why every control method decomposes into a handful of token-level decisions, and a starter table mapping papers onto those axes.'
+date: 2026-07-25
+track: generative
+type: note
+status: seed
+tags: [DiT, diffusion, conditioning, adaLN, attention, RoPE]
+---
+
+import Callout from '../../components/Callout.astro';
+
+<Callout emoji="🌱">
+  This is a seed on purpose. It's the skeleton for a project I'm starting this week: mapping
+  every conditioning paper I read onto one coordinate system. The table at the bottom is a
+  starter — rows get verified and added as I read. Expect this post to change.
+</Callout>
+
+## The floor: what a DiT actually is
+
+Four facts carry almost everything else:
+
+1. **Latent patches are the tokens.** A VAE encodes the image into a latent (say 64×64×4), which is chopped into patches (say 2×2), each linearly projected into an embedding. A "token" in a DiT is a *spatial patch of the latent*, not a word.
+2. **The transformer predicts noise (or velocity).** The denoising objective is unchanged from U-Net diffusion — only the backbone swapped. Nothing in the diffusion math cares that it's attention now.
+3. **Conditioning enters two ways.** The timestep (and class label or pooled text vector) usually enters via **adaLN**: an MLP maps the condition vector to per-block scale/shift/gate values that modulate every token's LayerNorm. Rich text conditioning enters via **cross-attention** (classic DiT / PixArt) or by **concatenating text tokens into one joint sequence** (MM-DiT, as in SD3 and FLUX).
+4. **Why DiT won.** Transformers scale predictably with compute (the DiT paper's Gflops-vs-FID plot), and a token sequence is a universal interface: text, image latents, reference latents, and video frames all concatenate into the same attention.
+
+## The claim
+
+Inside a DiT there is no such thing as "the image" versus "the condition." **There is only the token sequence.** So every form of control decomposes into three actions:
+
+1. **Add tokens** — what enters the sequence
+2. **Assign coordinates** — what position/role each token claims
+3. **Decide who is allowed to look at whom** — the attention pattern
+
+Cross-attention stops being a separate mechanism under this view: it's just a joint attention where the text tokens are visible but never updated. Action 3 covers it.
+
+## Refinement one: the exception is modulation
+
+One thing never enters as a token: the global condition. The timestep, the pooled text vector, the guidance embedding — they bypass the sequence entirely and act through adaLN modulation on every token at once. So the honest version of the list has a fourth action:
+
+4. **Set the global knobs** — conditions that skip the sequence and arrive via modulation
+
+## Refinement two: two axes hide inside "add tokens"
+
+Recent papers mostly differentiate on two questions that "add tokens" quietly contains:
+
+- **Which weights process the tokens?** Shared weights for all modalities (FLUX single-stream blocks; OminiControl's LoRA on shared weights) versus separate per-modality parameters (SD3's MM-DiT; FLUX double-stream blocks; IP-Adapter's decoupled K/V projections).
+- **When do the tokens exist?** Condition tokens don't change across denoising steps, so their features can be computed once and cached — exactly OminiControl2's feature reuse — or injected only into some blocks.
+
+## The coordinate system, as a table
+
+Six columns: tokens added · coordinates · attention · weights · non-token (adaLN) · lifecycle. Each paper is one row.
+
+| Paper | Tokens added | Coordinates | Who sees whom | Weights | Non-token (adaLN) | Lifecycle |
+|---|---|---|---|---|---|---|
+| DiT '22 | none | standard 2D | full self-attn | — | class + timestep | — |
+| PixArt-α | text (side sequence) | none for text | one-way (cross-attn) | separate K/V | timestep (adaLN-single) | recomputed |
+| SD3 (MM-DiT) | text joined in-sequence | no spatial position for text | full joint | separate per modality | pooled text + timestep | recomputed |
+| FLUX | text + image, 3D RoPE | (t, h, w) ids; text at id 0 | full joint | double→single stream | timestep, guidance | recomputed |
+| OminiControl | VAE-encoded condition images | **same coords if spatially aligned (depth/Canny); offset coords if subject reference** | full joint, biasable | shared + LoRA | timestep | recomputed |
+| OminiControl2 | compact condition tokens | same scheme | full joint | shared + LoRA | timestep | **cached across steps** |
+| ControlNet | none — features added directly | n/a | n/a | copied branch | timestep | recomputed |
+
+Two things the table exposes. The **coordinates column** is where OminiControl earns its keep: position assignment is literally how it distinguishes "control map" from "subject reference." And **ControlNet sits outside the frame entirely** — it operates in feature space, not token space — which is useful because it marks the frame's boundary.
+
+<Callout emoji="⚠️" tone="amber">
+  Starter-table honesty: rows above are from working memory and discussion, not yet re-verified
+  against each paper. Verifying them, row by row, is the project. Corrections welcome.
+</Callout>
+
+## First test case: SIGMA-GEN
+
+I'm currently reading [SIGMA-GEN](https://arxiv.org/abs/2510.06469) — single-pass multi-subject identity-preserving generation, with structure guidance anywhere from coarse 2D/3D boxes to pixel-level segmentation and depth, in one model. My bet before finishing the method section: its contribution lives mostly in the *tokens added* and *coordinates* columns.
+
+Open question: where does SIGMA-GEN place each subject's identity tokens in coordinate space so that multiple identities don't blend?
