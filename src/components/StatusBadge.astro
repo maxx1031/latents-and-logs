@@ -1,0 +1,14 @@
+---
+import { STATUS } from '../site';
+
+interface Props {
+  status: keyof typeof STATUS;
+}
+
+const { status } = Astro.props;
+const s = STATUS[status];
+---
+
+<span class="inline-flex items-center gap-1 text-[0.8rem] text-ink-faint" title={s.hint}>
+  <span aria-hidden="true">{s.emoji}</span>{s.label}
+</span>

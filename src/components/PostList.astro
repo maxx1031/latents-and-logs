@@ -1,0 +1,46 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import StatusBadge from './StatusBadge.astro';
+import TrackChip from './TrackChip.astro';
+
+interface Props {
+  posts: CollectionEntry<'posts'>[];
+  revealFrom?: number;
+}
+
+const { posts, revealFrom } = Astro.props;
+const fmt = (d: Date) =>
+  d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+---
+
+<ul class="divide-y divide-hairline">
+  {
+    posts.map((post, i) => (
+      <li
+        class:list={[revealFrom !== undefined && 'reveal']}
+        style={revealFrom !== undefined ? `--reveal-i: ${revealFrom + i}` : undefined}
+      >
+        <a href={`/posts/${post.id}/`} data-track={post.data.track} class="group block py-5">
+          <div class="flex items-baseline justify-between gap-4">
+            <h3 class="font-serif text-[1.18rem] leading-snug tracking-tight transition-colors group-hover:text-accent">
+              {post.data.title}
+            </h3>
+            <time datetime={post.data.date.toISOString()} class="shrink-0 font-mono text-[0.78rem] text-ink-faint">
+              {fmt(post.data.date)}
+            </time>
+          </div>
+          <p class="mt-1.5 line-clamp-2 text-[0.92rem] leading-relaxed text-ink-soft">{post.data.description}</p>
+          <div class="mt-2.5 flex items-center gap-4">
+            <TrackChip track={post.data.track} />
+            <StatusBadge status={post.data.status} />
+            {post.data.type === 'essay' && (
+              <span class="rounded-full border border-hairline px-2 py-px text-[0.72rem] tracking-wide text-ink-faint uppercase">
+                Essay
+              </span>
+            )}
+          </div>
+        </a>
+      </li>
+    ))
+  }
+</ul>

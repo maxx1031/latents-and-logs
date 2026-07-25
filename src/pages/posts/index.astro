@@ -1,0 +1,75 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostList from '../../components/PostList.astro';
+import { getPublishedPosts } from '../../lib/posts';
+import { TRACKS } from '../../site';
+
+const posts = await getPublishedPosts();
+---
+
+<Base title="Posts" description="All notes and essays, filterable by track.">
+  <h1 class="font-serif text-[2rem] tracking-tight">Posts</h1>
+  <div class="mt-5 flex flex-wrap gap-2" id="track-filters">
+    <button data-track="all" class="chip" aria-pressed="true">All</button>
+    {
+      Object.entries(TRACKS).map(([id, t]) => (
+        <button data-track={id} class="chip" aria-pressed="false">
+          {t.sub}
+        </button>
+      ))
+    }
+  </div>
+  <div class="mt-2" id="post-list">
+    <PostList posts={posts} />
+  </div>
+
+  <style>
+    .chip {
+      border: 1px solid var(--color-hairline);
+      border-radius: 999px;
+      padding: 0.3rem 0.85rem;
+      font-size: 0.85rem;
+      color: var(--color-ink-soft);
+      cursor: pointer;
+      transition:
+        color 120ms ease,
+        border-color 120ms ease,
+        background 120ms ease;
+    }
+    .chip:hover {
+      color: var(--color-ink);
+    }
+    .chip[aria-pressed='true'] {
+      background: var(--color-ink);
+      border-color: var(--color-ink);
+      color: var(--color-paper);
+    }
+  </style>
+
+  <script>
+    const buttons = document.querySelectorAll<HTMLButtonElement>('#track-filters .chip');
+    const items = document.querySelectorAll<HTMLLIElement>('#post-list li');
+
+    function apply(track: string) {
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.track === track)));
+      items.forEach((li) => {
+        const t = li.querySelector('a')?.dataset.track;
+        li.style.display = track === 'all' || t === track ? '' : 'none';
+      });
+    }
+
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        const track = b.dataset.track ?? 'all';
+        apply(track);
+        const url = new URL(location.href);
+        if (track === 'all') url.searchParams.delete('track');
+        else url.searchParams.set('track', track);
+        history.replaceState(null, '', url);
+      })
+    );
+
+    const initial = new URL(location.href).searchParams.get('track');
+    if (initial) apply(initial);
+  </script>
+</Base>

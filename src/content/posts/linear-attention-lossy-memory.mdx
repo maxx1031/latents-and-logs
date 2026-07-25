@@ -1,0 +1,58 @@
+---
+title: 'Linear Attention Is a Lossy Memory — and It Loses High Frequencies First'
+description: 'Notes on the ETH linear-attention survey: the kernel trick, the delta rule, and two mechanisms that explain why a fixed-size recurrent memory systematically sacrifices high-frequency detail.'
+date: 2026-07-10
+updated: 2026-07-24
+track: generative
+type: note
+status: growing
+tags: [attention, linear-attention, efficiency, delta-rule]
+---
+
+import Callout from '../../components/Callout.astro';
+
+这篇 [ETH 的综述](https://arxiv.org/abs/2607.07953) 把 softmax attention 到 DeltaNet 家族（DeltaNet、Gated DeltaNet、Kimi Delta……）统一到一个视角下：**它们都是同一块固定大小的循环记忆矩阵 $W$，区别只在写入和遗忘规则**。这个视角本身就值回票价，但我真正想记下来的，是想清楚了一件事：为什么这类固定记忆**一定**先丢高频信息。
+
+## 统一视角：一张大小写死的摘要表
+
+Softmax attention 要为每个 query 对每个 key 打分，$O(T^2)$。Kernel trick 把打分近似成特征映射的内积 $\phi(q) \cdot \phi(k)$，于是求和可以重排：
+
+$$
+y = \sum_j (\phi(q) \cdot \phi(k_j))\, v_j = W \phi(q), \qquad W = \sum_j v_j \otimes \phi(k_j)
+$$
+
+中括号里的 $W$ 不依赖 query，可以随序列增量维护——这就是 $O(T)$ 的来源。$W$ 的尺寸是 $d_v \times d_\phi$，**与序列长度无关**：全部历史被压进一张大小写死的联想记忆表，读取就是 $y = W\phi(q)$。
+
+Delta rule（DeltaNet）的改进是把 naive 累加换成纠错式写入：先读出记忆对当前 key 的预测 $\bar v = W\phi(k)$，只写入残差 $r = v - \bar v$——「只写记忆还不知道的那部分」。后续所有变体本质上只是在此之上加不同粒度的遗忘门（标量 → 逐通道 → 擦除与写入分离）。
+
+<Callout emoji="✨" tone="iris">
+  「只写残差」是个会反复出现的直觉：低成本通道负责已知的粗信息，增量分支只补主干预测不出的部分。
+  在 residual learning、diffusion 的 coarse-to-fine、以及各种 conditioning 设计里，都能看到它的化身。
+</Callout>
+
+## 为什么固定 $W$ 一定丢高频
+
+这不是一条定理，而是「固定容量强制取舍时，高频在两种机制下都最先被牺牲」：
+
+**机制一：容量经济学。** $W$ 能存的独立信息有上限（rank 至多 $\min(d_v, d_\phi)$），超出就互相干扰。低频/语义信息是低熵的、冗余的、跨样本共享的——少量维度就能存下，而且对降 loss 贡献大。高频细节是高熵的、不可压缩的、每一条对全局 loss 的贡献都很小——存起来又贵又不划算。预算不够时，它第一个被挤出去。
+
+**机制二：读取即低通滤波（更本质）。** $y = W\phi(q)$ 里的 $W$ 是对历史的加总，所以读取本质上是对 values 做相似度加权平均。低频成分跨样本对齐，平均后保留；高频成分各不相同、互不对齐，平均后相互抵消、被抹平。对比之下，softmax 的归一化足够尖锐，能近似 delta 选择、近乎无损地取回单个 token；线性核太平滑，锐化不到 delta，只能 blend——blend 就是低通，低通就没有高频。
+
+<Callout emoji="🧭" tone="teal">
+  推论：任何「把一组输入均匀压缩进固定容量再读出」的设计——Perceiver 式 resampler、Q-Former、
+  固定 recurrent memory——都共享这个失败模式：语义保住了，高频身份细节没了。想要 flat scaling
+  又要保高频，压缩这条路本身就是矛盾的来源，得从别处想办法。
+</Callout>
+
+## 边界条件
+
+这是一篇 **LLM 场景**的综述：因果、按时间到达的序列、自回归。增量维护 $W$ 依赖 token 有时间轴——对于无序集合输入加双向 attention 的场景（比如 DiT 的 joint attention），这套重排根本不成立。借它的思想可以，搬它的机制不行。
+
+---
+
+**English takeaways**
+
+- The survey's unifying view: softmax attention and the whole DeltaNet family are one fixed-size recurrent memory matrix $W$ with different write/forget rules; linear $O(T)$ cost comes from maintaining $W$ incrementally.
+- The delta rule writes only the residual $v - W\phi(k)$ — "what the memory doesn't already know" — a design intuition that recurs across residual learning and conditioning architectures.
+- Fixed-capacity memories lose high-frequency information first, for two reasons: capacity economics (high-entropy detail is expensive per unit of loss reduction) and, more fundamentally, readout-as-averaging (a summed memory reads out as a similarity-weighted mean, which is a low-pass filter; softmax can sharpen to near-delta selection, linear kernels cannot).
+- Scope caveat: all of this assumes causal, temporally-ordered sequences — the incremental trick does not transfer to unordered sets under bidirectional attention.

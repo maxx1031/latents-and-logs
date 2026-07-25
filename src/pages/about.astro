@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE, STATUS } from '../site';
+---
+
+<Base title="About" description={`About ${SITE.author} and how this garden works.`}>
+  <article class="prose max-w-none pt-2 sm:pt-6">
+    <h1 class="font-serif">About</h1>
+    <p>
+      I'm <strong>{SITE.author}</strong>, a graduate student at Dartmouth working on generative
+      models — currently multi-subject reference conditioning for diffusion transformers. This
+      site is where I study in public.
+    </p>
+    <p>The name is the map. Everything here lives on one of three tracks:</p>
+    <ul>
+      <li><strong>Latents</strong> — diffusion, image &amp; video generation: mechanisms, conditioning, efficiency.</li>
+      <li><strong>Logs</strong> — distributed systems (MIT 6.824) and Designing Machine Learning Systems.</li>
+      <li><strong>Loops</strong> — agentic systems: tools, orchestration, evaluation.</li>
+    </ul>
+    <p>
+      The interesting part is where they intersect: <em>the systems problems of generative
+      models</em> — serving diffusion cheaply, scaling training, building agents that use these
+      models well.
+    </p>
+    <h2>How this garden works</h2>
+    <p>
+      This is a <a href="https://maggieappleton.com/garden-history">digital garden</a>, not a
+      blog. Posts are published early and tended over time, and each one wears its maturity
+      honestly:
+    </p>
+    <ul>
+      {
+        Object.values(STATUS).map((s) => (
+          <li>
+            {s.emoji} <strong>{s.label}</strong> — {s.hint}.
+          </li>
+        ))
+      }
+    </ul>
+    <p>
+      Most posts are bilingual: the body in Chinese, with English takeaways at the end. If a
+      seed looks half-finished, that's because it is — publishing early is the whole point.
+    </p>
+    <h2>Elsewhere</h2>
+    <p>
+      <a href={SITE.github}>GitHub</a> · <a href="/rss.xml">RSS</a>
+    </p>
+  </article>
+</Base>

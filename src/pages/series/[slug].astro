@@ -1,0 +1,29 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostList from '../../components/PostList.astro';
+import { getPublishedPosts, slugifySeries } from '../../lib/posts';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  const names = [...new Set(posts.map((p) => p.data.series).filter((s): s is string => !!s))];
+  return names.map((name) => ({
+    params: { slug: slugifySeries(name) },
+    props: {
+      name,
+      posts: posts
+        .filter((p) => p.data.series === name)
+        .sort((a, b) => (a.data.seriesOrder ?? 0) - (b.data.seriesOrder ?? 0)),
+    },
+  }));
+}
+
+const { name, posts } = Astro.props;
+---
+
+<Base title={name} description={`All parts of the series “${name}”.`}>
+  <p class="text-[0.78rem] tracking-wide text-ink-faint uppercase">Series</p>
+  <h1 class="mt-1 font-serif text-[2rem] tracking-tight">{name}</h1>
+  <div class="mt-4">
+    <PostList posts={posts} />
+  </div>
+</Base>

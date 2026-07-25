@@ -1,0 +1,13 @@
+---
+import { SITE } from '../site';
+---
+
+<footer class="mx-auto mt-20 w-full max-w-2xl px-5 pb-10 sm:px-6">
+  <div class="flex items-center justify-between border-t border-hairline pt-6 text-[0.85rem] text-ink-faint">
+    <p>© {new Date().getFullYear()} {SITE.author}</p>
+    <p class="flex gap-4">
+      <a href={SITE.github} class="transition-colors hover:text-ink">GitHub</a>
+      <a href="/rss.xml" class="transition-colors hover:text-ink">RSS</a>
+    </p>
+  </div>
+</footer>

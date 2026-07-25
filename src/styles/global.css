@@ -1,0 +1,164 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Instrument Sans Variable', 'Helvetica Neue', sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* paper / ink — light */
+  --color-paper: #faf8f5;
+  --color-surface: #ffffff;
+  --color-ink: #211f1c;
+  --color-ink-soft: #55514a;
+  --color-ink-faint: #8a857b;
+  --color-hairline: #e8e4dc;
+  --color-accent: #a44a2a;
+
+  /* track accents */
+  --color-iris: #6e62c9;
+  --color-amber: #b07822;
+  --color-teal: #2f8a72;
+}
+
+.dark {
+  --color-paper: #161412;
+  --color-surface: #1e1c19;
+  --color-ink: #ece8e1;
+  --color-ink-soft: #b3ada2;
+  --color-ink-faint: #7d786e;
+  --color-hairline: #2d2a26;
+  --color-accent: #e08d63;
+
+  --color-iris: #978ce6;
+  --color-amber: #d3a04f;
+  --color-teal: #56b299;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* ——— Shiki dual theme switching ——— */
+.dark .astro-code,
+.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+}
+html:not(.dark) .astro-code,
+html:not(.dark) .astro-code span {
+  color: var(--shiki-light) !important;
+  background-color: var(--shiki-light-bg) !important;
+}
+
+/* ——— Prose (article body) — Notion-like density on paper ——— */
+.prose {
+  --tw-prose-body: var(--color-ink);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-quotes: var(--color-ink-soft);
+  --tw-prose-quote-borders: var(--color-hairline);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-hr: var(--color-hairline);
+  --tw-prose-th-borders: var(--color-hairline);
+  --tw-prose-td-borders: var(--color-hairline);
+  --tw-prose-bullets: var(--color-ink-faint);
+  --tw-prose-counters: var(--color-ink-faint);
+  --tw-prose-captions: var(--color-ink-faint);
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.prose h2 {
+  margin-top: 2.2em;
+  font-size: 1.55em;
+}
+.prose a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  transition: text-decoration-color 120ms ease;
+}
+.prose a:hover {
+  text-decoration-color: var(--color-accent);
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  font-weight: 400;
+}
+.prose :not(pre) > code {
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  border-radius: 4px;
+  padding: 0.15em 0.35em;
+}
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
+}
+.prose pre {
+  border: 1px solid var(--color-hairline);
+  border-radius: 10px;
+  font-size: 0.86em;
+  line-height: 1.65;
+}
+.prose blockquote {
+  font-style: normal;
+  font-weight: 400;
+}
+.prose blockquote p:first-of-type::before,
+.prose blockquote p:last-of-type::after {
+  content: none;
+}
+.prose img {
+  border-radius: 8px;
+}
+.prose .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+/* mermaid blocks render client-side; keep them unboxed */
+pre.mermaid {
+  background: transparent;
+  border: none;
+  display: flex;
+  justify-content: center;
+}
+
+/* ——— Page-load reveal ——— */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--reveal-i, 0) * 70ms);
+  }
+  @keyframes reveal {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

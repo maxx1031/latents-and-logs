@@ -1,0 +1,15 @@
+---
+import { TRACKS, type TrackId } from '../site';
+
+interface Props {
+  track: TrackId;
+}
+
+const { track } = Astro.props;
+const t = TRACKS[track];
+const dot = { iris: 'bg-iris', amber: 'bg-amber', teal: 'bg-teal' }[t.color];
+---
+
+<span class="inline-flex items-center gap-1.5 text-[0.8rem] text-ink-soft">
+  <span class:list={['size-1.5 rounded-full', dot]} aria-hidden="true"></span>{t.sub}
+</span>

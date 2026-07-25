@@ -1,0 +1,48 @@
+---
+title: 'A Garden, Not a Blog'
+description: 'Why this site publishes unfinished notes on purpose — the three tracks, the status system, and the ADHD-proof pipeline behind it.'
+date: 2026-07-24
+track: agents
+type: essay
+status: evergreen
+tags: [meta, learning-in-public]
+---
+
+import Callout from '../../components/Callout.astro';
+import Toggle from '../../components/Toggle.astro';
+
+这个网站不是 blog，是一座 digital garden。区别只有一条：blog 的单位是「写完的文章」，garden 的单位是「正在生长的笔记」。这里的每一篇都带着状态标记——🌱 seed 是刚发芽的粗糙笔记，🌿 growing 是正在成形的理解，🌲 evergreen 是稳定到可以引用的东西。种子不需要为自己的粗糙道歉。
+
+<Callout emoji="🌱">
+  如果你点进一篇 seed 觉得「这没写完啊」——对，它就是没写完。提前发布本身就是规则的一部分。
+</Callout>
+
+## 为什么要这样设计
+
+我有 ADHD。对我来说，「写一篇完整的博客文章」这个任务的启动成本高到几乎不可能完成——但「把今天已经做过的精读笔记修剪一下发出去」是可以的。所以这座园子的核心规则是：**我从不从零开始写**。每篇文章都是学习过程的副产品：论文精读、课程笔记、实验记录，先以最粗的形态种下来，之后每次重访就修剪一点。
+
+维护端也一样：发布流程被压缩成一次 `git push`，剩下的（构建、部署、上线）全部自动发生。我和我的 agent（Claude）一起维护这套流水线——它负责把笔记整理成草稿、检查事实、收尾发布，我负责真正的理解和取舍。这也算是 Loops 这条 track 的一个活体实验。
+
+## 三条 track
+
+- **Latents** — 生成模型：diffusion、图像与视频生成的机制、conditioning、效率。
+- **Logs** — 系统：MIT 6.824 分布式系统、Designing Machine Learning Systems。
+- **Loops** — Agentic 系统：工具使用、编排、评估。
+
+<Toggle title="为什么是这三条？它们真的相关吗？">
+  相关，而且交叉处才是重点。生成模型正在变成基础设施——于是「怎么便宜地 serve 一个 diffusion
+  模型」「怎么给 agent 一个可靠的图像工具」这类问题，同时是 Latents、Logs 和 Loops
+  的问题。我赌的是：懂机制又懂系统的人，会站在最有意思的位置上。
+</Toggle>
+
+## 给读者的使用说明
+
+按 track 或 series 浏览，别按时间。时间线对 garden 没有意义——一篇 2026 年 6 月种下的 seed 可能在 12 月长成 evergreen。如果你发现错误，[GitHub](https://github.com/maxx1031) 上找我，指出错误是对园丁最大的善意。
+
+---
+
+**English takeaways**
+
+- This is a digital garden, not a blog: posts are published early as 🌱 seeds and tended into 🌿 growing and 🌲 evergreen notes over time.
+- The ADHD-proof rule: never write from scratch — every post is a byproduct of study (paper deep-dives, course notes), and publishing is compressed into a single `git push`.
+- Three tracks: **Latents** (diffusion & video generation), **Logs** (distributed systems & ML systems), **Loops** (agentic systems) — the interesting problems live at their intersections.
