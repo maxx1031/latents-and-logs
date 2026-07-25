@@ -25,6 +25,6 @@ Consult these guides before working on related tasks:
 
 - Posts: `src/content/posts/*.mdx`, schema in `src/content.config.ts`, site constants in `src/site.ts`.
 - This is a digital garden: posts carry `status: seed|growing|evergreen` and are published early. `draft: true` hides a post in production but shows it in dev.
-- Bilingual style: Chinese body, ending with an **English takeaways** bullet section.
+- All site content is English-only — no Chinese anywhere on the site (her rule, 2026-07-24).
 - When converting a note from ~/Desktop/科研手记 into a post: strip private sections (questions for collaborators, 汇报内容, unpublished research design details), verify all external links, and keep claims faithful to the source note.
 - Dates are formatted with `timeZone: 'UTC'` — keep it that way to avoid off-by-one dates.

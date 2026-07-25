@@ -11,47 +11,39 @@ tags: [diffusion, DiT, conditioning, efficiency, evaluation]
 
 import Callout from '../../components/Callout.astro';
 
-[OminiControl2](https://arxiv.org/abs/2503.08280) 解决的是 DiT 多 condition 控制里的 efficiency bottleneck。这篇笔记不复述论文，只回答两个我关心的问题：**成本到底从哪来**，以及**它的 evaluation 到底证明了什么、没证明什么**。
+[OminiControl2](https://arxiv.org/abs/2503.08280) targets the efficiency bottleneck of multi-condition control in diffusion transformers. These notes don't retell the paper; they answer the two questions I actually care about: **where the cost comes from**, and **what the evaluation does and does not prove**.
 
-## 成本从哪来
+## Where the cost comes from
 
-Universal image conditioning（OminiControl 开创的做法）很灵活：把 condition 图像编码成 tokens，直接拼进 DiT 的序列里参与 attention。但代价有两层：
+Universal image conditioning (the approach OminiControl pioneered) is flexible: encode each condition image into tokens and concatenate them into the DiT sequence, where they participate in attention. The price has two layers:
 
-- Attention 对序列长度是 quadratic cost，每加一个 condition，序列就长一截；
-- Condition tokens 在**每一个 denoising step 都被重新处理一遍**——而它们本身并不随时间步变化。
+- Attention is quadratic in sequence length, and every added condition makes the sequence longer;
+- Condition tokens get **re-processed at every denoising step**, even though they don't change across timesteps.
 
-所以 conditional overhead 随 condition 数量和步数快速膨胀。OminiControl2 的两个对策正好对着这两层：**compact token representation**（压缩 condition tokens，缩短序列）和 **feature reuse**（condition 特征跨 denoising steps 复用，不重复算）。
+So conditional overhead balloons with both the number of conditions and the number of steps. OminiControl2's two fixes map one-to-one onto those layers: **compact token representation** (compress condition tokens, shorten the sequence) and **feature reuse** (compute condition features once and reuse them across denoising steps).
 
-## 它怎么证明 efficiency
+## How it proves efficiency
 
-这部分是论文最扎实的地方，evaluation spec 值得整体抄下来当模板：
+This is the most solid part of the paper — the evaluation spec is worth copying wholesale as a template:
 
-- **任务**：Canny-to-image、depth-to-image、mask inpainting、image deblurring
-- **数据**：Text-to-Image-2M 训练；COCO2017 validation（5,000 张）评估
-- **质量指标**：FID、CLIP-Text、CLIP-Image、NIQE、MUSIQ
-- **效率指标**：inference latency、condition overhead（秒 / 百分比）、parameter overhead
-- **Baselines**：OminiControl、SD 1.5 + ControlNet、FLUX + ControlNet 系、token merging、naive feature caching；ablation 拆开只用 feature reuse / 只用 compact representation
-- **训练**：FLUX.1 + LoRA，Prodigy optimizer，每任务 25k iterations
+- **Tasks**: Canny-to-image, depth-to-image, mask inpainting, image deblurring
+- **Data**: trained on Text-to-Image-2M; evaluated on COCO2017 validation (5,000 images)
+- **Quality metrics**: FID, CLIP-Text, CLIP-Image, NIQE, MUSIQ
+- **Efficiency metrics**: inference latency, condition overhead (seconds / percentage), parameter overhead
+- **Baselines**: OminiControl, SD 1.5 + ControlNet, FLUX + ControlNet variants, token merging, naive feature caching; ablations isolate feature-reuse-only and compact-representation-only
+- **Training**: FLUX.1 + LoRA, Prodigy optimizer, 25k iterations per task
 
-核心数字：multi-condition 场景下 conditional overhead 从 **24.38s 降到 0.93s**（约 96.2% reduction），同时 FID 保持 competitive。而且 speedup 是分别沿分辨率、denoising steps、condition 数量三个轴报告的——这种「效率沿多个 scaling 轴分别汇报」的写法本身就值得学。
+The headline number: in the multi-condition setting, conditional overhead drops from **24.38s to 0.93s** (~96.2% reduction) while FID stays competitive. Notably, speedup is reported separately along three axes — resolution, denoising steps, and number of conditions. That habit of reporting efficiency along each scaling axis independently is itself worth stealing.
 
 <Callout emoji="🔍">
-  读 evaluation 时留了一个悬而未决的问题：它的 "multi-condition" 到底指四种不同类型的
-  condition 同时给，还是同一种 condition 的数量增加？这两种设定的难度和意义完全不同，
-  论文里没有把这条边界写得很清楚。
+  One question the evaluation left open for me: does "multi-condition" mean four *different*
+  condition types given simultaneously, or *more instances* of the same condition type? Those
+  two settings differ completely in difficulty and meaning, and the paper never draws the
+  boundary sharply.
 </Callout>
 
-## 它没证明什么
+## What it doesn't prove
 
-论文用 FID / CLIP / NIQE / MUSIQ 覆盖了「生成质量还行」，但这些都是 generic 指标——**没有专门评 control fidelity**：给了 reference/condition 之后，输出到底多忠实于它？对比之下，MICo-Bench 这类工作专门为 multi-reference composition 设计了 human-aligned 的 reference-based 指标（如 Weighted-Ref-VIEScore，带 human-verified reference 和 face-source 标注）。
+FID / CLIP / NIQE / MUSIQ establish that generation quality holds up — but those are generic metrics. **There is no dedicated control-fidelity evaluation**: given a reference or condition, how faithful is the output to it? By contrast, work like MICo-Bench builds human-aligned, reference-based metrics specifically for multi-reference composition (e.g. Weighted-Ref-VIEScore, with human-verified reference images and face-source annotations).
 
-两篇的 evaluation 目标其实是正交的：OminiControl2 证明 **conditioning 可以很便宜**，MICo-Bench 关心 **conditioning 是否忠实**。一个像样的 multi-condition benchmark 大概需要同时有这两组轴——efficiency 的 latency/overhead/condition-scaling 轴，加上 fidelity 的 reference/identity/prompt-alignment 轴。
-
----
-
-**English takeaways**
-
-- The cost of universal image conditioning in DiT is twofold: condition tokens lengthen the sequence (quadratic attention cost), and they get re-processed at every denoising step despite being time-invariant.
-- OminiControl2 attacks exactly those two: compact token representation (shorter sequences) and cross-step feature reuse — cutting multi-condition overhead from 24.38s to 0.93s (~96% reduction) at competitive FID.
-- Its evaluation proves conditioning **efficiency**, not control **fidelity**: quality is measured with generic metrics (FID/CLIP/NIQE/MUSIQ), with no reference-based faithfulness metric à la MICo-Bench's Weighted-Ref-VIEScore.
-- Reporting speedup separately along resolution, step count, and condition count is a template worth stealing for any efficiency paper.
+The two evaluations are essentially orthogonal: OminiControl2 proves that **conditioning can be cheap**; MICo-Bench asks whether **conditioning is faithful**. A serious multi-condition benchmark probably needs both groups of axes — efficiency (latency / overhead / condition scaling) *and* fidelity (reference / identity / prompt alignment).
