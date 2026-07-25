@@ -4,17 +4,22 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
-  --font-sans: 'Instrument Sans Variable', 'Helvetica Neue', sans-serif;
-  --font-mono: 'Spline Sans Mono', ui-monospace, 'SF Mono', monospace;
+  /* Lil'Log-style system stack for everything */
+  --font-sans:
+    -apple-system, 'system-ui', 'segoe ui', Roboto, Oxygen, Ubuntu, Cantarell, 'open sans',
+    'helvetica neue', sans-serif;
+  --font-serif:
+    -apple-system, 'system-ui', 'segoe ui', Roboto, Oxygen, Ubuntu, Cantarell, 'open sans',
+    'helvetica neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* paper / ink — light */
-  --color-paper: #faf8f5;
-  --color-surface: #ffffff;
-  --color-ink: #211f1c;
-  --color-ink-soft: #55514a;
-  --color-ink-faint: #8a857b;
-  --color-hairline: #e8e4dc;
+  /* light — plain white / near-black, PaperMod-style */
+  --color-paper: #ffffff;
+  --color-surface: #f8f8f8;
+  --color-ink: #1e1e1e;
+  --color-ink-soft: #555555;
+  --color-ink-faint: #6c6c6c;
+  --color-hairline: #eaeaea;
   --color-accent: #a44a2a;
 
   /* track accents */
@@ -24,12 +29,12 @@
 }
 
 .dark {
-  --color-paper: #161412;
-  --color-surface: #1e1c19;
-  --color-ink: #ece8e1;
-  --color-ink-soft: #b3ada2;
-  --color-ink-faint: #7d786e;
-  --color-hairline: #2d2a26;
+  --color-paper: #1d1e20;
+  --color-surface: #2e2e33;
+  --color-ink: #dadadb;
+  --color-ink-soft: #9b9c9d;
+  --color-ink-faint: #808081;
+  --color-hairline: #333336;
   --color-accent: #e08d63;
 
   --color-iris: #978ce6;
@@ -49,28 +54,23 @@ html {
   background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
-/* ——— Shiki dual theme switching ——— */
-.dark .astro-code,
-.dark .astro-code span {
+/* ——— Code blocks: dark in both modes, like Lil'Log ——— */
+.astro-code,
+.astro-code span {
   color: var(--shiki-dark) !important;
-  background-color: var(--shiki-dark-bg) !important;
+  background-color: rgb(28, 29, 33) !important;
   font-style: var(--shiki-dark-font-style) !important;
   font-weight: var(--shiki-dark-font-weight) !important;
 }
-html:not(.dark) .astro-code,
-html:not(.dark) .astro-code span {
-  color: var(--shiki-light) !important;
-  background-color: var(--shiki-light-bg) !important;
-}
 
-/* ——— Prose (article body) — Notion-like density on paper ——— */
+/* ——— Prose (article body) — 16px/1.6 sans, bold headings ——— */
 .prose {
   --tw-prose-body: var(--color-ink);
   --tw-prose-headings: var(--color-ink);
-  --tw-prose-links: var(--color-accent);
+  --tw-prose-links: var(--color-ink);
   --tw-prose-bold: var(--color-ink);
-  --tw-prose-quotes: var(--color-ink-soft);
-  --tw-prose-quote-borders: var(--color-hairline);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-ink);
   --tw-prose-code: var(--color-ink);
   --tw-prose-hr: var(--color-hairline);
   --tw-prose-th-borders: var(--color-hairline);
@@ -78,37 +78,43 @@ html:not(.dark) .astro-code span {
   --tw-prose-bullets: var(--color-ink-faint);
   --tw-prose-counters: var(--color-ink-faint);
   --tw-prose-captions: var(--color-ink-faint);
-  font-size: 1.02rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 .prose h1,
 .prose h2,
 .prose h3,
 .prose h4 {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: normal;
+}
+.prose h1 {
+  font-size: 2.25em;
+  line-height: 1.2;
 }
 .prose h2 {
-  margin-top: 2.2em;
-  font-size: 1.55em;
+  margin-top: 2em;
+  margin-bottom: 1em;
+  font-size: 1.5em;
+  line-height: 1.2;
 }
 .prose a {
+  text-decoration: underline;
   text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  text-decoration-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  transition: text-decoration-color 120ms ease;
+  text-underline-offset: 2px;
+  transition: opacity 120ms ease;
 }
 .prose a:hover {
-  text-decoration-color: var(--color-accent);
+  opacity: 0.75;
 }
 .prose code {
   font-family: var(--font-mono);
-  font-size: 0.86em;
+  font-size: 0.8em;
   font-weight: 400;
 }
 .prose :not(pre) > code {
-  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
   border-radius: 4px;
   padding: 0.15em 0.35em;
 }
@@ -117,12 +123,14 @@ html:not(.dark) .astro-code span {
   content: none;
 }
 .prose pre {
-  border: 1px solid var(--color-hairline);
-  border-radius: 10px;
-  font-size: 0.86em;
-  line-height: 1.65;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8em;
+  line-height: 1.5;
 }
 .prose blockquote {
+  border-left: 3px solid var(--color-ink);
+  padding-left: 14px;
   font-style: normal;
   font-weight: 400;
 }
