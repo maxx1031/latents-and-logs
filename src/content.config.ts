@@ -18,4 +18,19 @@ const posts = defineCollection({
   }),
 });
 
-export const collections = { posts };
+const log = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/log' }),
+  schema: z.object({
+    date: z.coerce.date(),
+    papers: z
+      .array(
+        z.object({
+          title: z.string(),
+          url: z.string().url().optional(),
+        })
+      )
+      .optional(),
+  }),
+});
+
+export const collections = { posts, log };

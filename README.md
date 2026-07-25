@@ -28,6 +28,10 @@ draft: true                  # hidden in production builds
 
 MDX components: `<Callout emoji="💡" tone="iris|amber|teal">`, `<Toggle title="...">`, `<Figure src alt caption>`.
 
+### Reading Log
+
+Daily entries live in `src/content/log/YYYY-MM-DD.md` and render at `/log`. Frontmatter is just `date` plus an optional `papers` list (`title`, optional `url`); the body is 1-3 sentences on what stuck, optionally ending with an open question. It's an anti-forgetting trace, not a streak — gaps are invisible, accumulation is visible.
+
 ## Develop
 
 ```sh
