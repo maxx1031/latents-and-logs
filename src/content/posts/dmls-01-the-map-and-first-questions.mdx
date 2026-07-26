@@ -1,0 +1,87 @@
+---
+title: 'Designing ML Systems #1: The Map, and Latency vs. Throughput'
+description: 'Starting Chip Huyen''s book: the four questions the whole book answers, the five components and five scenarios, ML system requirements, and finally understanding why batching makes higher latency coexist with higher throughput.'
+date: 2026-07-26
+track: systems
+type: note
+status: seed
+series: 'Designing ML Systems'
+seriesOrder: 1
+tags: [ml-systems, dmls, latency, throughput, monitoring]
+draft: true
+---
+
+import Callout from '../../components/Callout.astro';
+import Toggle from '../../components/Toggle.astro';
+
+Starting [*Designing Machine Learning Systems*](https://www.oreilly.com/library/view/designing-machine-learning-systems/9781098107956/) (Chip Huyen). This series is my reading trace — one post per chunk, seeded rough and grown as chapters connect.
+
+## The four questions the book keeps answering
+
+Everything in the book is some version of:
+
+1. **What model should I use?**
+2. **How often should I retrain my model?**
+3. **How can I detect data distribution shifts?**
+4. **How do I ensure features used during training are consistent with features used at inference?**
+
+Question 4 is the sneaky one — train/serve feature skew is a silent correctness bug, not a performance bug.
+
+## The five components
+
+An ML system is not a model. It's: **ML algorithms · data · business logic · evaluation metrics · underlying infrastructure**. The book's chapter map (Figure 1-1 in the book) hangs chapters on this diagram: business requirements feed in (Ch1–2), data and infrastructure form the base (Ch3–4, Ch10), feature engineering / algorithms / evaluation sit in the middle (Ch5–6), and deployment–monitoring–updating wraps the whole thing (Ch7–9), with users on the receiving end (Ch11).
+
+Reading plan in those terms: **Ch3 & Ch10** (data + infra base) · **Ch4–6** (pre-deployment) · **Ch7–9** (deployment and post-deployment).
+
+## Five scenarios to locate yourself in
+
+- **Modeling** — you have a business problem and raw data; engineer them and choose the right metrics.
+- **Deploying** — models look good in offline experiments; now ship them. (My note: feature backtest efficiency directly affects the strategy, because some features only work in specific regimes — e.g. trending or high-velocity conditions.)
+- **Monitoring** — deployed models give you little feedback; you need to detect, debug, and fix production issues fast (logs? alerts? on what signals?).
+- **Pipeline** — develop/evaluate/deploy/update is manual, slow, error-prone; automate it.
+- **Infrastructure** — every use case has its own bespoke workflow; build shared foundations (model store, feature store, monitoring tools).
+
+## ML system requirements
+
+- **Reliability** — the hard part: how do we even know a prediction is *wrong* without ground-truth labels to compare against?
+- **Scalability** — distributed training, model optimization, resource management, experiment tracking & versioning, development environment.
+- **Maintainability** — largely a team-structure question, not a tooling question.
+- **Adaptability** — data distribution shifts, continual learning.
+
+And the iterative loop the book assumes: choose a metric to optimize → collect data, obtain labels, engineer features, train → error analysis, find the problem, relabel → retrain → iterate → deploy. Deployment is a *step in the loop*, not the end of it.
+
+## Latency vs. throughput — the example that confused me, resolved
+
+The book's Figure 1-4 shows four setups, and at first the bottom half looks contradictory: *higher latency AND higher throughput?*
+
+**One query at a time**: throughput is just the inverse of latency. 10 ms per query → 100 queries/s; 20 ms → 50 queries/s. Lower latency ⇒ higher throughput. They're one number, written two ways.
+
+**Batched queries**: throughput = batch size ÷ latency. Wait until 10 queries accumulate, process them together in 10 ms → 1,000 queries/s. Batch 50 together in 20 ms → 2,500 queries/s. Each individual query now waits *longer* (20 ms instead of 10), yet the system processes *more* per second.
+
+<Callout emoji="💡">
+  Batching breaks the inverse relationship. Latency and throughput stop being the same number
+  and become a **tradeoff you tune with batch size** — you buy throughput by making
+  individual requests wait for the batch to fill. This is why GPU inference servers batch:
+  the fixed costs per forward pass (kernel launches, weight loading, memory bandwidth) get
+  amortized across the whole batch.
+</Callout>
+
+This is also the real difference between **batch (offline) prediction** and **streaming (online) prediction**: batch systems optimize throughput and nobody watches a spinner; online systems optimize latency and every ms is user-visible.
+
+## Percentiles, and what p99 means when money is involved
+
+Mean latency lies — one slow outlier hides in the average. So latency is reported in percentiles: p50 is the median; **p99 means 99% of requests complete faster than this number** — and 1% are slower. Higher percentiles exist to *surface* outliers, not to smooth them away.
+
+Why care about the 1%? In consumer systems, the slowest requests often belong to the heaviest users — the ones with the most data and the most purchases. In a trading system it's sharper: if the system handles 100k messages a day, p99 is the experience of 1,000 of them — and those aren't random. Tail latency clusters exactly at moments of market stress, when message rates spike — which is precisely when a slow response costs the most (stale quotes get picked off). That's why trading infrastructure is specified in p99/p99.9/max and in **jitter** (latency variance), not in average latency.
+
+## Open questions
+
+<Toggle title="TODO list, to resolve in later chapters">
+  - Bit-exact data quality validation: how do production systems verify that the serving-time
+    feature pipeline produces *bit-identical* values to the training pipeline? (Smells like
+    Ch5/Ch8 territory — log-and-compare? shadow scoring?)
+  - Latency jitter testing: what's the standard methodology for measuring and
+    regression-testing latency *variance*, not just percentiles at a point in time?
+  - Typical orders of magnitude to memorize: what are the canonical latency/throughput
+    numbers for online ranking, search, and GPU model serving?
+</Toggle>
