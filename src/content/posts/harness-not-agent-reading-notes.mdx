@@ -1,0 +1,91 @@
+---
+title: 'Harness, Not Agent: Reading Notes on Lilian Weng''s Harness Post'
+description: 'What a harness actually is, how I would pick harness components for my own research loop, and the failure patterns I recognize from my own training runs.'
+date: 2026-07-25
+track: agents
+type: note
+status: seed
+tags: [harness, agents, context-engineering, research-automation]
+---
+
+import Callout from '../../components/Callout.astro';
+
+[Lilian Weng's harness post](https://lilianweng.github.io/posts/2026-07-04-harness/) is the first thing I've read that defines "harness" cleanly instead of using it as a synonym for agent. The classic agent recipe is LLM + memory + tools + planning. A harness is the system *around* the model: it decides how the model thinks and plans, calls tools, perceives and manages context, stores artifacts, and evaluates results. It also owns the parts agent frameworks tend to skip, like workflow design, permissions, and persistent state. The shift is from writing prompt templates to doing runtime and software system design.
+
+I read the post wearing different hats, and each one raised different questions.
+
+## As a researcher: formulating questions
+
+Before any technical content, the post itself raised a meta-question for me. During the "formulate questions and collect existing solutions" phase of research, how does one write something this dense and this correct? What guarantees the quality of the input you're synthesizing from? I don't have an answer yet. But the post is an existence proof that curation is a separate skill from generation, and I want to reverse-engineer it at some point.
+
+## As a researcher: selecting a harness for experiments
+
+The question I can actually act on: during the "implement ideas and run experiments" phase, how do I select harness components instead of adopting some framework wholesale? Reading through the post's landscape, three pieces stood out.
+
+### 1. Choose a baseline: ACE
+
+If I had to pick one baseline from the post, it would be ACE (Agentic Context Engineering), where the context is an evolving playbook maintained by generator, reflector, and curator roles.
+
+Why: it's purely in-context, no gradients, and it runs in a single process. There is no training infrastructure to stand up before you can compare anything.
+
+How: keep the same generator, the same implementation environment, the same verifier, and replace *only* the context management. That's the whole argument for it as a baseline. A baseline is good when swapping it changes exactly one variable.
+
+### 2. Construct data: AutoData
+
+Weng discusses AutoData-style workflows where a challenger proposes samples, solvers attempt them, and a verifier judges. That challenger–solver–verifier shape is exactly a synthetic dataset pipeline, which is what I need.
+
+The loop: the challenger reads the playbook and generates candidate samples aimed at difficult cases and failure patterns; the solver attempts them; the verifier auto-judges, so execution feedback replaces human labeling; the reflector extracts regularities from the pass/fail distribution; the curator writes back to the playbook incrementally, append and edit, never rewrite.
+
+Three things to watch, and honestly they matter more than the loop itself:
+
+<Callout emoji="⚠️">
+  **The verifier setup must be read-only.** Runs directory, tracer, verifier code, LLM config,
+  all locked. Otherwise the challenger reward-hacks: it learns to generate garbage samples that
+  the verifier happens to pass. Weng calls this out explicitly.
+</Callout>
+
+- **Novelty rejection.** The number-one killer of synthetic data is diversity collapse, and a playbook *accelerates* it. Once the model learns "this kind of sample works," it produces only that kind. ShinkaEvolve's novelty rejection sampling transfers directly here as candidate dedup.
+- **Keep the failure trajectories.** A reflector naturally learns only from successes. That negative-result bias turns the playbook into a collection of survivorship bias, so failed samples must be written back explicitly.
+
+### 3. Find ideas: build an idea killer, not an idea generator
+
+A pure ideation agent gives you fifty ideas that all look novel, and you still don't know which one to pick. The bottleneck isn't generation, it's falsification. So the pipeline I'd want inverts the usual design:
+
+1. **A literature base.** A scientific concept network built from real papers, to avoid the illusion of novelty.
+2. **A proposer** that explores, expands, and evolves, borrowing the chain-of-thought playbook. The requirement I care about most: every proposed edit is evidence-paired and comes with a falsifiable prediction.
+3. **Two independent critics.** A novelty critic that must cite real papers (search the concept graph, return the closest neighbors and the diff) and a feasibility critic grounded in actual compute and data availability.
+4. **A cheap falsifier.** Run MVP experiments on the top-k ideas with a clear objective. Verifier, runs, and configs are read-only, same rule as above. The verdict is three-way: falsified, not falsified, or undecidable because the proxy signal is too weak.
+5. **An ACE playbook.** The curator incrementally records which idea classes keep getting killed on novelty, which proxies give no signal, which sub-directions are saturated. Failure entries must be written explicitly, again because reflectors repeat success trajectories naturally.
+
+Plus the same anti-collapse machinery from the data pipeline: embedding-based novelty rejection against the archive before an idea even reaches the critics, a cold-start quota forcing some fraction of ideas to come from low co-occurrence concept pairs, and proposer personas run in parallel (theory-leaning, engineering-leaning, data-leaning) then merged and deduped.
+
+## As an engineer
+
+For engineering work the post distills three design patterns:
+
+1. **Workflow automation**: goal-oriented loops of plan, execute, observe and test, improve.
+2. **File system as persistent memory**: durable state lives in files, not in the context window.
+3. **Sub-agents and background jobs**: parallelism that is explicit and inspectable.
+
+Nothing here is surprising if you've used a modern coding harness, but it's useful to see them named as patterns rather than product features.
+
+## What is "harness optimization" actually about?
+
+The optimization section is a taxonomy I plan to keep as an index. Five module families, and the interesting part is how they compose:
+
+- **Context engineering** (ACE and friends)
+- **Workflow design** (AI-Scientist-style pipelines, AutoData, AFlow)
+- **Self-improving harnesses** (STOP-style self-modification)
+- **Evolutionary search** (AlphaEvolve, ShinkaEvolve, Darwin Gödel Machine)
+- **Joint optimization with model weights**, the frontier where harness and model stop being separable
+
+## The failure patterns I recognize
+
+For me this is the most important part of the post: the catalog of failure modes from autonomous research attempts. Four of them describe things I have personally watched happen while implementing training and fine-tuning:
+
+1. **Bias toward training-data defaults.** The model reaches for outdated libraries and stale commands instead of what the actual repository uses.
+2. **Implementation drift under execution pressure.** When the proposed method gets technically hard, the agent quietly drifts toward a simpler, more common solution.
+3. **Memory and context degradation.** Long-horizon projects lose critical details unless state is systematically written out as persistent artifacts.
+4. **Over-optimism.** Declaring success while the signal is still noise. Weng's phrase for it is "numerical duct tape."
+
+None of these are exotic. They're the same failure modes I hit as a human under deadline pressure, which is maybe the real argument for harnesses: the discipline they encode (read-only verifiers, persistent artifacts, explicit failure logs) is discipline we need too.
