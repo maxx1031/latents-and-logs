@@ -1,0 +1,76 @@
+---
+title: 'UNO: One Change to FLUX, and a Data Flywheel'
+description: 'Reading notes on UNO: how a minimal positional change, synthetic training pairs, and a less-to-more curriculum turn FLUX into a multi-subject customization model.'
+date: 2026-07-26
+track: generative
+type: note
+status: seed
+tags: [UNO, FLUX, DiT, multi-subject, customization, RoPE, synthetic-data]
+---
+
+*Reading notes on [“Less-to-More Generalization: Unlocking More Controllability by In-Context Generation”](https://openaccess.thecvf.com/content/ICCV2025/html/Wu_Less-to-More_Generalization_Unlocking_More_Controllability_by_In-Context_Generation_ICCV_2025_paper.html) (ICCV 2025).*
+
+UNO is a multi-subject customization model. Its recipe is short: synthesize your own training pairs, concatenate reference tokens, shift their positions. The paper's value is not in any single component. It is in how little is changed, and how the data is made.
+
+## 1. Data Construction
+
+<Figure
+  src="/images/posts/uno/training-pairs.png"
+  alt="UNO data construction pipeline: a text-to-image model creates diptychs for single-subject training pairs, then a subject-to-image model redraws cropped secondary subjects to create multi-subject triplets."
+  caption="UNO's less-to-more data flywheel: T2I diptychs produce single-subject pairs; the trained S2I model redraws secondary subjects to form multi-subject triplets. Source: Wu et al., ICCV 2025."
+/>
+
+The problem is standard: subject-driven generation needs (reference, target) pairs of the *same* subject in *different* scenes. Real pairs are scarce. Cropped pairs teach copy-paste.
+
+UNO's answer is a diptych. A text template asks FLUX to draw one image with two panels: "Left: \<subject1\> in \<scene1\>. Right: \<subject1\> together with \<subject2\> in \<scene2\>." The two panels are denoised in one pass, under one self-attention. Consistency is free. Split the image; the left panel is the reference, the right is the target.
+
+Note the template plants a second subject in the right panel. It is not used yet.
+
+Filtering is two-stage: DINOv2 similarity first, then a VLM scores appearance, details, and attributes. Low scores are discarded.
+
+Train a subject-to-image (S2I) model on these pairs. Now harvest the planted subject: an open-vocabulary detector locates \<subject2\> in each target and crops it. The crop is not used as a reference — same pose, same view, same lighting; training on it teaches pasting. Instead, the S2I model redraws the crop in a new pose and scene. That redrawn image is the second reference. Filter again. The result is (ref1, ref2, target) triplets.
+
+So the flywheel: T2I makes data for S2I; S2I makes data for the multi-subject model. Weaker models feed stronger ones. The authors call this model-data co-evolution; the dataset (UNO-1M, ~1M pairs) and the pipeline are open.
+
+## 2. Architecture
+
+A useful lens (from [this post](https://latents-and-logs.vercel.app/posts/dit-control-is-decisions-about-tokens/)): conditioning a DiT is six decisions about tokens. What tokens to inject. What coordinates to assign. Who attends to whom. Whether to use the modulation side-path. Shared or separate weights. Recompute tokens each step, or cache. (ControlNet sits outside this frame — it operates on features, not tokens.)
+
+UNO answers five of the six with "default":
+
+| Decision | UNO |
+|---|---|
+| Token injection | reference latents, through the *same* `img_in` as the target |
+| Coordinates | **the only change** (below) |
+| Attention | full joint attention, no mask |
+| Modulation | untouched |
+| Weights | fully shared; no adapter, no image encoder; the VAE is the encoder |
+| Lifecycle | recomputed every step, no cache |
+
+The one change is UnoPE. Reference tokens get RoPE indices shifted past the target's bottom-right corner; each further reference continues along the diagonal. Target and references share no coordinates. The model cannot copy by position; it must attend by content. The implementation is six lines of index arithmetic.
+
+## 3. Training Pipeline
+
+The paper names it Progressive Cross-Modal Alignment. The code says: one single-stage script, run twice. Stage I trains on single-reference pairs; Stage II continues on multi-reference triplets. LoRA rank 512 on a frozen FLUX, standard flow-matching loss, 512px.
+
+This is worth noticing, not mocking. An ordinary curriculum, given a name, a motivation sentence ("directly exposing the model to multiple references is unstable"), and an ablation row, becomes a method component. That is legitimate craft.
+
+## 4. Writing
+
+The prose is ordinary. The structure is not. Five mechanisms:
+
+1. **Section order = causal chain = slogan.** Data (§3.2) feeds model (§3.3); single-to-multi appears in both; everything restates "less-to-more."
+2. **No unmotivated design.** Every component is a defect-response pair: data scarce → synthesize; pairs noisy → filter; crops teach pasting → redraw; multi-ref unstable → curriculum; positions leak layout → shift them.
+3. **Name → contribution → ablation, one line through.** Every named component has a bullet in the intro and a row in the ablation table.
+4. **Planted setups.** The diptych template contains subject2 before the pipeline needs it. Two stages read as one machine.
+5. **Preliminaries that work.** §3.1 defines MM-DiT and RoPE notation so that UnoPE later needs only a delta.
+
+Test for all five: read only the first sentence of each paragraph in §3. The method should reconstruct itself. UNO passes.
+
+## 5. Criticism, and Open Questions
+
+**Cost is not discussed.** Token concatenation grows the sequence: L = L_txt + (1+N)·L_img, and attention grows as L². At 512px (1024 tokens per image, 512 text tokens): N=1 costs ~2.8× a plain T2I forward pass; N=2, ~5.4×; N=8, ~40×. References are clean images, but their activations depend on the timestep, so nothing is cached — the full price is paid at every denoising step. At N≤2 the silence is affordable. Anyone scaling to many references inherits the bill, and the paper leaves the problem open.
+
+**The multi-subject benchmark is home-made.** Single-subject results use DreamBench. Multi-subject results use 30 two-subject combinations the authors assembled from DreamBench themselves. Self-built benchmarks measure what the builder optimized. The field has since moved toward third-party multi-subject benchmarks; numbers on this one should be read as internal evidence.
+
+**What does RoPE geometry actually do here?** UnoPE's explanation is one sentence: shifted positions prevent copying the reference layout. That is a phenomenon, not a mechanism. The same knob turns both ways — one can also *map* reference coordinates into a target region to induce layout, rather than shift them away to suppress it. How RoPE offsets shape reference-to-target attention in multi-object generation is, as far as I can tell, unexamined. It seems worth examining.
